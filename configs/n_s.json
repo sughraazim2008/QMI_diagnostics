@@ -1,0 +1,39 @@
+{
+  "tol": 0.0001,
+  "periods": 100,
+  "Ns": [
+    4,
+    5
+  ],
+  "n_real": 2,
+  "dt": 10.0,
+  "V": 10,
+  "hs": [
+    0.1,
+    1.0,
+    10.0
+  ],
+  "Ws": [
+    0.1,
+    5.0,
+    20.0
+  ],
+  "n_s": {
+    "dephasing|0.001": 8,
+    "dephasing|0.0026827": 8,
+    "dephasing|0.00719686": 8,
+    "dephasing|0.019307": 8,
+    "dephasing|0.0517947": 16,
+    "dephasing|0.13895": 16,
+    "dephasing|0.372759": 16,
+    "dephasing|1": 32,
+    "amplitude_damping|0.001": 8,
+    "amplitude_damping|0.0026827": 8,
+    "amplitude_damping|0.00719686": 8,
+    "amplitude_damping|0.019307": 16,
+    "amplitude_damping|0.0517947": 16,
+    "amplitude_damping|0.13895": 16,
+    "amplitude_damping|0.372759": 32,
+    "amplitude_damping|1": 64
+  }
+}
