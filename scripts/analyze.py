@@ -9,7 +9,11 @@ python scripts/analyze.py --main results/main/main.parquet --esn results/main/es
 """
 import argparse
 import json
+import os
 from pathlib import Path
+
+for v in ("OMP_NUM_THREADS", "OPENBLAS_NUM_THREADS", "VECLIB_MAXIMUM_THREADS"):
+    os.environ.setdefault(v, "1")       # the bootstrap is many tiny fits; threads only add overhead
 
 import numpy as np
 import pandas as pd
@@ -43,6 +47,8 @@ def main():
     p.add_argument("--n-boot-gbt", type=int, default=200)
     p.add_argument("--margin", type=float, default=0.02)
     p.add_argument("--label", default="")
+    p.add_argument("--keep-esp-failures", action="store_true",
+                   help="sensitivity analysis: keep configurations that fail the echo-state check")
     a = p.parse_args()
 
     raw = pd.read_parquet(a.main)
@@ -50,7 +56,8 @@ def main():
     gap_ref = pd.read_csv(a.gap_ref) if Path(a.gap_ref).exists() else None
     out = Path(a.out or Path(a.main).parent / "analysis")
     (out / "figures").mkdir(parents=True, exist_ok=True)
-    df = st.prepare(raw, esn, a.task, a.shots, gap_ref=gap_ref)
+    P = dict(gap_ref=gap_ref, drop_esp_failures=not a.keep_esp_failures)
+    df = st.prepare(raw, esn, a.task, a.shots, **P)
     R, S = [], {}           # report lines, JSON summary
     kw = dict(margin=a.margin, n_boot=a.n_boot)
 
@@ -63,8 +70,10 @@ def main():
     S["n_raw"], S["n_used"] = len(raw), len(df)
     S["esp_fail_fraction"] = float((~raw["esp_ok"]).mean())
     R += [f"Echo-state check (trace distance < 1e-6 after washout) failed for "
-          f"**{(~raw['esp_ok']).sum()} of {len(raw)}** configurations; these are excluded, leaving "
-          f"{len(df)} configurations in {df['cell'].nunique()} grid cells.\n",
+          f"**{(~raw['esp_ok']).sum()} of {len(raw)}** configurations; these are "
+          f"{'KEPT in this sensitivity analysis' if a.keep_esp_failures else 'excluded'}, leaving "
+          f"{len(df)} configurations in {df['cell'].nunique()} grid cells. Quantiles of the distance "
+          f"(10%, 50%, 90%, max): " + ", ".join(f"{q:.1e}" for q in raw["esp_dist"].quantile([0.1, 0.5, 0.9, 1.0])) + ".\n",
           "Fraction failing, by N, channel (rows) and γ (columns):\n", md(esp.reset_index(), 2)]
     lam_cols = [c for c in raw.columns if c.startswith("lam_upper_") and c.endswith(a.shots)]
     R += ["Share of ridge fits selecting the largest allowed penalty (λ = 1): "
@@ -120,13 +129,14 @@ def main():
     R.append("## 3. H1a — does QMI add predictive information?\n")
     subsets = {"pooled": df}
     for ch in sorted(df["channel"].unique()):
-        subsets[ch] = df[df["channel"] == ch]
+        if df.loc[df["channel"] == ch, "cell"].nunique() >= 30:
+            subsets[ch] = df[df["channel"] == ch]
     if "regime" in df:
         for g in ("ergodic", "localised"):
-            if (df["regime"] == g).sum() >= 40:
+            if df.loc[df["regime"] == g, "cell"].nunique() >= 30:
                 subsets[g] = df[df["regime"] == g]
     for N in sorted(df["N"].unique()):
-        if df["N"].nunique() > 1:
+        if df["N"].nunique() > 1 and df.loc[df["N"] == N, "cell"].nunique() >= 30:
             subsets[f"N={N}"] = df[df["N"] == N]
     rows = []
     for name, d in subsets.items():
@@ -143,7 +153,7 @@ def main():
         rows.append(dict(label=label, **st.nested_gain(df, **{**kw, **extra})))
     for tag in ("s5", "s4"):
         if f"nrmse_{a.task}_{tag}" in raw:
-            d = st.prepare(raw, esn, a.task, tag, gap_ref=gap_ref)
+            d = st.prepare(raw, esn, a.task, tag, **P)
             rows.append(dict(label=f"pooled: + T, shots 1e{tag[1]}", **st.nested_gain(d, **kw)))
     h1a = pd.DataFrame(rows)
     h1a.to_csv(out / "table_h1a.csv", index=False)
@@ -194,14 +204,14 @@ def main():
     task_src, task_esn = (raw, esn)
     if a.transfer:
         traw, tesn = pd.read_parquet(a.transfer), pd.read_parquet(a.transfer_esn or a.esn)
-        tdf = st.prepare(traw, tesn, a.task, a.shots, gap_ref=gap_ref)
+        tdf = st.prepare(traw, tesn, a.task, a.shots, **P)
         add(f"size: N={sorted(df['N'].unique())} → N={sorted(tdf['N'].unique())}", df, tdf)
         task_src, task_esn = traw, tesn
-    src = st.prepare(task_src, task_esn, a.task, a.shots, gap_ref=gap_ref)
+    src = st.prepare(task_src, task_esn, a.task, a.shots, **P)
     for t2 in ("narma5", "narma20", "mackey_glass"):
         if f"nrmse_{t2}_{a.shots}" in task_src and (task_esn["task"] == t2).any():
             prefix = "diagmg_" if t2 == "mackey_glass" else "diag_"
-            add(f"task: {a.task} → {t2}", src, st.prepare(task_src, task_esn, t2, a.shots, diag_prefix=prefix, gap_ref=gap_ref))
+            add(f"task: {a.task} → {t2}", src, st.prepare(task_src, task_esn, t2, a.shots, diag_prefix=prefix, **P))
     if tr:
         h1c = pd.DataFrame(tr)
         h1c.to_csv(out / "table_h1c.csv", index=False)

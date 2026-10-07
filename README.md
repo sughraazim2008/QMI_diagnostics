@@ -15,10 +15,11 @@ performance gap.
 
 ## Status
 
-The code is complete and tested. The gap-ratio pilot, the integrator calibration, a
-reproduction check against Palacios et al. and a reduced-size pilot sweep have been run and
-are in `results/`. The pre-registered main sweep (2,880 configurations) and transfer sweep
-(360 configurations at N = 8) have **not** been run; see the compute estimate in
+The code is complete and tested (54 tests). The gap-ratio pilot, the integrator calibration,
+a qualitative reproduction of Palacios et al. and a reduced-size N = 4 pilot sweep have been
+run and are in `results/`. The pre-registered main sweep (2,880 configurations) and transfer
+sweep (360 configurations at N = 8) have **not** been run. The pilot raises design questions
+that should be settled first, and the transfer sweep needs a cluster; both are set out in
 `docs/PILOT_RESULTS.md`.
 
 ## Install

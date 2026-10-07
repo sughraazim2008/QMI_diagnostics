@@ -1,0 +1,91 @@
+{
+  "config": {
+    "name": "pilot6",
+    "Ns": [
+      6
+    ],
+    "channels": [
+      "dephasing",
+      "amplitude_damping"
+    ],
+    "gammas": [
+      0.0026826957952797246,
+      0.019306977288832496,
+      0.13894954943731375
+    ],
+    "hs": [
+      0.1,
+      1.0,
+      10.0
+    ],
+    "Ws": [
+      0.1,
+      5.0,
+      20.0
+    ],
+    "n_real": 2,
+    "narma_tasks": [
+      "narma10",
+      "narma5",
+      "narma20"
+    ],
+    "mackey_glass": false,
+    "compute_ipc": false,
+    "dt": 10.0,
+    "V": 10,
+    "encoding": "pure_z",
+    "coupling": "symmetric",
+    "field_prefactor": 0.5,
+    "propagator": "auto",
+    "n_s_safety": 1,
+    "splits": {
+      "washout": 500,
+      "n_train": 2000,
+      "n_val": 500,
+      "n_test": 1000
+    },
+    "n_inputs": 2,
+    "shots": [
+      1000000.0,
+      100000.0,
+      10000.0
+    ],
+    "noise_model": "binomial",
+    "diag_steps": 200,
+    "diag_stride": 2,
+    "esp_tol": 1e-06,
+    "ipc_degree": 3,
+    "ipc_delay": 20,
+    "base_seed": 20261007
+  },
+  "config_hash": "69dd5bc0ef10",
+  "code_version": "0.1.0",
+  "git_sha": "5163d1caeed6956c01ade17c6c040badbe6b0b85",
+  "python": "3.14.3",
+  "platform": "macOS-15.7.3-arm64-arm-64bit-Mach-O",
+  "packages": {
+    "numpy": "2.5.3",
+    "scipy": "1.18.1",
+    "pandas": "3.0.6",
+    "sklearn": "1.9.1",
+    "statsmodels": "0.15.0"
+  },
+  "n_s_table": {
+    "dephasing|0.001": 8,
+    "dephasing|0.0026827": 8,
+    "dephasing|0.00719686": 8,
+    "dephasing|0.019307": 8,
+    "dephasing|0.0517947": 16,
+    "dephasing|0.13895": 16,
+    "dephasing|0.372759": 16,
+    "dephasing|1": 32,
+    "amplitude_damping|0.001": 8,
+    "amplitude_damping|0.0026827": 8,
+    "amplitude_damping|0.00719686": 8,
+    "amplitude_damping|0.019307": 16,
+    "amplitude_damping|0.0517947": 16,
+    "amplitude_damping|0.13895": 16,
+    "amplitude_damping|0.372759": 32,
+    "amplitude_damping|1": 64
+  }
+}

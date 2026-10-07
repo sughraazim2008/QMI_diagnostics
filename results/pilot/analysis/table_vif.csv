@@ -1,0 +1,11 @@
+,VIF
+diag_negativity,15.13
+diag_coherence,14.84
+diag_tmi_per_qubit,35.76
+diag_purity,192.43
+diag_entropy_per_qubit,179.47
+log_gamma,5.09
+log_h,1.31
+log_W,1.73
+gap_ratio,1.16
+channel_ad,3.15

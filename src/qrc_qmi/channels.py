@@ -124,8 +124,19 @@ class LocalChannel:
             differ = (bits[:, None, :] != bits[None, :, :]).sum(axis=2)
             self._mask = (1.0 - p) ** both * np.sqrt(1.0 - p) ** differ
 
+        if name == "bit_flip" and not self.trivial:
+            # X_i rho X_i permutes rows and columns by flipping bit i
+            a = np.arange(2**N)
+            self._p = 0.5 * (1.0 - np.exp(-2.0 * gamma * t))
+            self._perms = [a ^ (1 << (N - 1 - i)) for i in range(N)]
+
     def __call__(self, rho: np.ndarray) -> np.ndarray:
         if self.trivial:
+            return rho
+        if self.name == "bit_flip":
+            p = self._p
+            for perm in self._perms:
+                rho = (1.0 - p) * rho + p * rho[:, perm][:, :, perm]
             return rho
         if self.name in ("dephasing", "phase_flip"):
             return rho * self._mask

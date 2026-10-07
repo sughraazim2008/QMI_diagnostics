@@ -254,7 +254,24 @@ The main sweep starts only after these checks pass.
 5. **Baseline sanity.** The tuned ESN must beat the untuned ESN and the linear–quadratic
    reference.
 
-<!-- MEASURED-VALUES -->
+**Measured values from the pilot** (details in [PILOT_RESULTS.md](PILOT_RESULTS.md)).
+
+Strang steps per sub-interval (τ = 1) needed for trace distance < 10⁻⁴ after 100 periods:
+
+| γ | 0.001 | 0.0027 | 0.0072 | 0.019 | 0.052 | 0.14 | 0.37 | 1 |
+|---|---|---|---|---|---|---|---|---|
+| Pure dephasing | 8 | 8 | 8 | 8 | 16 | 16 | 16 | 32 |
+| Amplitude damping | 8 | 8 | 8 | 16 | 16 | 16 | 32 | 64 |
+
+Reference gap ratio ⟨r⟩ at N = 10 for the chosen levels (100 realisations per point), with
+the regime label it implies:
+
+| | W = 0.1 | W = 5 | W = 20 |
+|---|---|---|---|
+| h = 0.1 | 0.406 (other: near-classical, not localised) | 0.513 (ergodic) | 0.408 (localised) |
+| h = 1 | 0.531 (ergodic) | 0.502 (ergodic) | 0.405 (localised) |
+| h = 10 | 0.519 (ergodic) | 0.444 (other) | 0.398 (localised) |
+
 
 ## 2.11 Reproducibility — `sweep.py`
 

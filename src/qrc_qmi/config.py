@@ -82,7 +82,7 @@ PILOT = replace(
     MAIN, name="pilot", Ns=(4,), n_real=4,
     narma_tasks=("narma10", "narma5", "narma20"), mackey_glass=True,
 )
-PILOT6 = replace(MAIN, name="pilot6", Ns=(6,), gammas=GAMMAS_MAIN[1::2], n_real=2, n_inputs=2,
+PILOT6 = replace(MAIN, name="pilot6", Ns=(6,), gammas=GAMMAS_MAIN[1:6:2], n_real=2, n_inputs=2,
                  n_s_safety=1, narma_tasks=("narma10", "narma5", "narma20"), compute_ipc=False,
                  diag_stride=2)
 
