@@ -55,7 +55,7 @@ def tune_esn(s, target, sp: Splits, D: int, n_trials: int = 100, tune_seeds=(900
         params = dict(
             leak=trial.suggest_float("leak", 0.05, 1.0, log=True),
             radius=trial.suggest_float("radius", 0.1, 1.5),
-            in_scale=trial.suggest_float("in_scale", 0.01, 2.0, log=True),
+            in_scale=trial.suggest_float("in_scale", 1e-3, 2.0, log=True),
             bias_scale=trial.suggest_float("bias_scale", 0.0, 1.0),
         )
         v = esn_score(s, target, sp, D, params, tune_seeds, which="val_nrmse").mean()

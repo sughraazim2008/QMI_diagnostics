@@ -60,7 +60,7 @@ def test_ridge_matches_closed_form_and_recovers_linear_map():
     wr = np.linalg.solve(Xc.T @ Xc + lam * np.eye(8), Xc.T @ (y[sp.train] - y[sp.train].mean()))
     pred = (X[sp.test] - X[sp.train].mean(0)) @ wr + y[sp.train].mean()
     assert np.isclose(f1["test_nrmse"][0], nrmse(y[sp.test], pred))
-    assert len(LAMBDAS) == 21 and np.isclose(LAMBDAS[0], 1e-10) and np.isclose(LAMBDAS[-1], 1.0)
+    assert len(LAMBDAS) == 25 and np.isclose(LAMBDAS[0], 1e-10) and np.isclose(LAMBDAS[-1], 100.0)
 
 
 def test_shot_noise_variance():
@@ -127,11 +127,11 @@ def synthetic(n_cells=120, per=4, beta_t=0.0, seed=0, shift=0.0):
     y = 0.5 * neg + 0.7 * coh + beta_t * tmi + shift + 0.5 * rng.normal(size=n) + 0.2 * ce
     return pd.DataFrame({st.NEG: neg, st.COH: coh, st.TMI: tmi, st.PAIR: tmi + 0.1 * rng.normal(size=n),
                          "channel_ad": ch, "channel": np.where(ch == 1, "amplitude_damping", "dephasing"),
-                         "cell": [f"c{c}" for c in cell], "delta": y})
+                         "site": [f"c{c}" for c in cell], "esp_ok": True, "delta": y})
 
 
 def test_h1a_detects_real_gain_and_declares_redundancy():
-    kw = dict(controls=["channel_ad"], n_boot=150, n_repeats=3, seed=1)
+    kw = dict(ctrl=["channel_ad"], n_boot=150, n_repeats=3, seed=1, alpha=0.05)
     yes = st.nested_gain(synthetic(beta_t=0.6), **kw)
     assert yes["decision"] == "supported" and yes["gain"] > 0.05
     no = st.nested_gain(synthetic(beta_t=0.0, n_cells=300), **kw)
@@ -140,7 +140,7 @@ def test_h1a_detects_real_gain_and_declares_redundancy():
 
 def test_cv_groups_never_straddle_folds():
     df = synthetic()
-    g = df["cell"].to_numpy()
+    g = df["site"].to_numpy()
     uniq, inv = np.unique(g, return_inverse=True)
     fold = (np.random.default_rng(0).permutation(len(uniq)) % 5)[inv]
     assert all(len(set(fold[g == c])) == 1 for c in uniq)
@@ -149,18 +149,18 @@ def test_cv_groups_never_straddle_folds():
 
 
 def test_commonality_components_sum_to_total():
-    c = st.commonality(synthetic(beta_t=0.4), controls=["channel_ad"]).set_index("component")["r2"]
+    c = st.commonality(synthetic(beta_t=0.4), ctrl=["channel_ad"]).set_index("component")["r2"]
     parts = c.drop(["controls only (R2)", "all three (increment)"]).sum()
     assert np.isclose(parts, c["all three (increment)"])
 
 
 def test_h1b_interaction_and_tost():
     df = synthetic(beta_t=0.5, n_cells=400)
-    same = st.h1b(df, controls=["channel_ad"])
+    same = st.h1b(df, ctrl=["channel_ad"], alpha=0.05)
     assert (same["decision"] == "channel-independent").all()
     df2 = df.copy()
     df2["delta"] += 0.8 * df2["channel_ad"] * df2[st.TMI]
-    diff = st.h1b(df2, controls=["channel_ad"])
+    diff = st.h1b(df2, ctrl=["channel_ad"], alpha=0.05)
     assert diff.loc[0, "decision"] == "channel-dependent" and diff.loc[0, "interaction"] > 0.2
     assert np.allclose(st.holm([0.01, 0.04]), [0.02, 0.04]) and np.allclose(st.holm([0.04, 0.03]), [0.06, 0.06])
 
@@ -169,10 +169,31 @@ def test_transfer_ratio():
     a, b = synthetic(beta_t=0.5, seed=1), synthetic(beta_t=0.5, seed=2)
     same = st.transfer(a, b, cols=(st.NEG, st.COH, st.TMI), n_boot=100)
     assert 0.85 < same["ratio"] < 1.15 and same["passes"]
+    # a different mean and scale in the target is absorbed by the linear recalibration ...
+    shifted = b.assign(delta=3.0 * b["delta"] - 7.0)
+    rec = st.transfer(a, shifted, cols=(st.NEG, st.COH, st.TMI), n_boot=100)
+    assert np.isclose(rec["ratio"], same["ratio"], atol=0.02) and rec["r2_target_raw"] < 0
+    # ... but a reversed relationship is not
     c = synthetic(beta_t=-0.5, seed=3)
     c["delta"] = -c["delta"]
     bad = st.transfer(a, c, cols=(st.NEG, st.COH, st.TMI), n_boot=100)
-    assert bad["ratio"] < 0 and not bad["passes"]
+    assert bad["ratio"] == 0 and bad["r2_target_raw"] < 0 and not bad["passes"]
+
+
+def test_common_support_and_size_indicators():
+    rows = []
+    for site, pass_dep, pass_ad in (("a", 4, 4), ("b", 1, 4), ("c", 4, 3)):
+        for ch, k in (("dephasing", pass_dep), ("amplitude_damping", pass_ad)):
+            for r in range(4):
+                rows.append(dict(site=site, cell=f"{site}|{ch}", channel=ch, esp_ok=r < k, D=100,
+                                 N=4 if site != "c" else 5, gamma=0.1, h=1.0, W=0.1,
+                                 nrmse_narma10_s6=0.5 + 0.01 * r, nrmse_sd_narma10_s6=0.02, n_inputs=5))
+    esn = pd.DataFrame({"task": ["narma10"], "D": [100], "esn_nrmse": [0.2]})
+    out = st.prepare(pd.DataFrame(rows), esn)
+    assert len(out) == 20 and set(out.loc[out.common_support, "site"]) == {"a"}   # c has 3/4 < 80%
+    assert np.allclose(out["delta"], 0.2 - out["nrmse_qrc"])
+    assert "N_is_5" in out and st.controls(out)[-1] == "N_is_5" and "N_is_5" not in st.controls(out, with_N=False)
+    assert 0 < st.wilson(0, 400)[1] < 0.01 and st.wilson(0, 400)[0] == 0.0
 
 
 # ----------------------------------------------------------------------------- sweep
@@ -181,6 +202,7 @@ def test_run_config_smoke():
     pts = list(SMOKE.grid())
     row = run_config(SMOKE, pts[0], inputs, {})
     again = run_config(SMOKE, pts[0], inputs, {})
+    assert pts[0]["site"] == list(SMOKE.grid())[SMOKE.n_configs // 2]["site"]      # same site, other channel
     for k in ("nrmse_narma10_s6", "nrmse_narma5_s4", "nrmse_mackey_glass_s6", "diag_tmi",
               "diagmg_coherence", "ipc_total", "gap_ratio", "esp_dist"):
         assert np.isfinite(row[k]), k
@@ -188,4 +210,7 @@ def test_run_config_smoke():
     assert row["D"] == SMOKE.n_features(3) and row["ipc_total"] <= row["D"]
     assert row["nrmse_narma10_s6"] <= row["nrmse_narma10_s4"] + 0.05
     other = run_config(SMOKE, pts[1], inputs, {})
-    assert other["diag_tmi"] != row["diag_tmi"]                   # independent Hamiltonian draw
+    assert other["gap_ratio"] != row["gap_ratio"]                 # independent Hamiltonian draw
+    paired = run_config(SMOKE, pts[SMOKE.n_configs // 2], inputs, {})
+    assert paired["channel"] != row["channel"] and paired["gap_ratio"] == row["gap_ratio"]   # shared Hamiltonian
+    assert paired["diag_tmi"] != row["diag_tmi"]

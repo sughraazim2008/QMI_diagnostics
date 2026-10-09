@@ -5,8 +5,9 @@ reservoir predicts its NARMA-10 performance gap to a tuned echo state network, b
 negativity and l1 coherence explain (H1a), whether that relation depends on the decoherence
 channel (H1b), and whether it transfers across channel, size and task (H1c).
 
-Read `docs/METHODS.md` first. It is the paper's Methods section written to match the code,
-and its Section 2.12 lists the open design decisions.
+Read `docs/METHODS.md` first: it is the paper's Methods section written to match the code
+(design v2). `docs/DESIGN_V2.md` states the hypotheses with their decision rules and explains
+every change from the first draft. `docs/PILOT_RESULTS.md` holds the pilot findings.
 
 ## Layout
 
@@ -28,12 +29,14 @@ and its Section 2.12 lists the open design decisions.
 Always use the project environment: `.venv/bin/python`.
 
 ```bash
-.venv/bin/python -m pytest -q                              # 54 tests, about 30 s
+.venv/bin/python -m pytest -q                              # 57 tests, about 15 s
 .venv/bin/python scripts/pilot_gap_ratio.py                # regime map -> results/pilot/gap_ratio.csv
 .venv/bin/python scripts/calibrate_ns.py --jobs 6          # Strang steps -> configs/n_s.json
 .venv/bin/python scripts/reproduce_palacios.py --jobs 6    # validation against [14]
 .venv/bin/python scripts/tune_esn.py main --jobs 4         # classical baselines for a preset
-.venv/bin/python scripts/run_sweep.py main --jobs 6        # resumable; presets: main transfer pilot pilot6 smoke
+.venv/bin/python scripts/pilot_esp.py pilot2 --jobs 6       # fading memory against washout length
+.venv/bin/python scripts/estimate_cost.py main transfer    # compute budget; run on an idle machine
+.venv/bin/python scripts/run_sweep.py main --jobs 6        # resumable; presets: main transfer pilot2 smoke
 .venv/bin/python scripts/analyze.py --main results/main/main.parquet --esn results/main/esn_baseline.parquet \
     --transfer results/transfer/transfer.parquet --transfer-esn results/transfer/esn_baseline.parquet
 ```
@@ -43,23 +46,28 @@ Always use the project environment: `.venv/bin/python`.
 
 ## Result table columns
 
-One row per configuration. Identifiers: `N, channel, gamma, h, W, real, cell, D`.
+One row per configuration. Identifiers: `N, channel, gamma, h, W, real, site, cell, D`
+(`site` = grid point shared by both channels; it is the cluster for all statistics).
 Performance: `nrmse_<task>_<s6|s5|s4>` (mean test NRMSE over input realisations at 10⁶, 10⁵,
 10⁴ shots), with `nrmse_sd_*`, `loglam_*`, `lam_upper_*`. Capacity: `ipc_total`, `ipc_deg1..3`,
 `ipc_threshold`. Diagnostics: `diag_*` (uniform-input drive) and `diagmg_*` (Mackey–Glass
 drive). Checks: `gap_ratio`, `esp_dist`, `esp_ok`, `n_s`, `propagator`, `seconds`.
-`stats.prepare` adds `delta`, `rel_delta`, `regime` and the log controls.
+`stats.prepare` adds `delta`, `rel_delta`, `regime`, `common_support`, the log controls and
+the system-size indicators.
 
 ## Rules for the results analysis
 
 1. Report only numbers that `scripts/analyze.py` (or a script you add under `scripts/`)
    produced from the Parquet tables. Do not type results into the paper by hand, and never
    estimate a number that has not been computed.
-2. The decision rules, margins (ΔR² = 0.02, interaction bound 0.1, transfer ratio 0.70) and
-   bootstrap settings are fixed in `stats.py` and Methods 2.9. Do not change them after
+2. The decision rules, margins (ΔR² = 0.02, interaction bound 0.1, transfer ratio 0.70), the
+   per-hypothesis α = 0.05/3 and the bootstrap settings are fixed in `stats.py` and Methods 2.9. Do not change them after
    looking at results. Anything added afterwards is exploratory and must be labelled so.
-3. `results/pilot*` is a reduced-size run made to exercise the pipeline. It is not the
-   pre-registered design and its numbers must not be presented as the paper's results.
+3. `results/pilot*` are reduced-size runs made to exercise the pipeline (`pilot`, `pilot6`:
+   design v1; `pilot2`: design v2). They are not the pre-registered sweep and their numbers
+   must not be presented as the paper's results. Tables written by design v1 lack some v2
+   columns; do not mix them with v2 tables.
+   Run heavy jobs one at a time: on an 8 GB laptop, parallel sweeps starve each other.
 4. State sample sizes after exclusions (echo-state failures) with every result.
 5. When writing the Results section, follow the order of `report.md`: data and exclusions,
    baselines, the gap, relations among diagnostics, H1a, H1b, H1c, then sensitivity analyses

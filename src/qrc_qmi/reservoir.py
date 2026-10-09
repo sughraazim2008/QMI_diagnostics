@@ -59,6 +59,22 @@ def observable_table(N: int, kind: str = "z+zz") -> np.ndarray:
     return np.array(rows)
 
 
+def sample_populations(p: np.ndarray, n_shots: float, rng) -> np.ndarray:
+    """Outcome frequencies of n_shots projective z-basis measurements of states with
+    populations p (rows sum to one).
+
+    Uses the Gaussian limit of the multinomial distribution, which has the exact mean p and
+    the exact covariance (diag(p) - p p^T) / n_shots:  p + (sqrt(p) z - p (sqrt(p) . z)) /
+    sqrt(n_shots) with z standard normal.  Every observable computed from one sample
+    therefore carries the correct variance (1 - <O>^2)/n_shots and the correct correlations
+    with the other observables.
+    """
+    p = np.clip(p, 0.0, None)
+    r = np.sqrt(p)
+    z = rng.standard_normal(p.shape)
+    return p + (r * z - p * (r * z).sum(axis=-1, keepdims=True)) / np.sqrt(n_shots)
+
+
 def liouvillian(H: np.ndarray, jumps: list[np.ndarray]) -> np.ndarray:
     """Row-major Liouvillian: d vec(rho)/dt = L vec(rho), using vec(A rho B) = (A (x) B^T) vec(rho)."""
     d = H.shape[0]
@@ -154,27 +170,43 @@ class Reservoir:
 
     # ------------------------------------------------------------------ driving
     def run(self, s: np.ndarray, rho0: np.ndarray | None = None, record: bool = True,
-            on_period_end=None):
+            on_period_end=None, shots: tuple = (), rng=None):
         """Drive with inputs s of shape (B, K).
 
         Returns (features, rho_final); features has shape (B, K, V * n_obs) (None if
         record=False).  `on_period_end(k, rho)` is called with the state at the end of
         period k, i.e. just before the next input is injected.
+
+        If `shots` is given, features is instead a dict {n_shots: array, None: exact array}:
+        at every readout time the z-basis outcome frequencies are sampled once per shot
+        count (see `sample_populations`) and all observables are computed from that one
+        sample, as they would be from one batch of measurements.
         """
         s = np.atleast_2d(np.asarray(s, dtype=float))
         B, K = s.shape
         rho = self.initial_state(B) if rho0 is None else rho0
         n_obs = self.obs.shape[0]
         feats = np.empty((B, K, self.V, n_obs)) if record else None
+        noisy = {n: np.empty((B, K, self.V, n_obs)) for n in shots} if record else {}
         for k in range(K):
             rho = self.inject(rho, s[:, k])
             for v in range(self.V):
                 rho = self.step(rho)
                 if record:
-                    feats[:, k, v, :] = self.features_of(rho)
+                    p = np.einsum("bii->bi", rho).real
+                    feats[:, k, v, :] = p @ self.obs.T
+                    for n in shots:
+                        noisy[n][:, k, v, :] = sample_populations(p, n, rng) @ self.obs.T
             if on_period_end is not None:
                 on_period_end(k, rho)
-        return (feats.reshape(B, K, self.V * n_obs) if record else None), rho
+        if not record:
+            return None, rho
+        feats = feats.reshape(B, K, self.V * n_obs)
+        if shots:
+            out = {n: a.reshape(B, K, self.V * n_obs) for n, a in noisy.items()}
+            out[None] = feats
+            return out, rho
+        return feats, rho
 
     # ------------------------------------------------------------------ validation helpers
     def echo_state_distance(self, s: np.ndarray, rng) -> float:

@@ -9,7 +9,7 @@ from qrc_qmi.channels import (LocalChannel, apply_local_kraus, choi_matrix, jump
                               kraus_operators, superoperator)
 from qrc_qmi.hamiltonian import SZ, bit_table, build_hamiltonian, draw_disorder, embed, gap_ratio
 from qrc_qmi.reservoir import (Reservoir, input_state, integrator_error, liouvillian,
-                               ode_reference_error, trace_distance)
+                               ode_reference_error, sample_populations, trace_distance)
 
 ALL = ["dephasing", "amplitude_damping", "phase_flip", "bit_flip"]
 
@@ -235,3 +235,31 @@ def test_all_diagnostics_consistent():
     assert np.isclose(d["pair_mi"], dg.pairwise_mutual_information(rho, N))
     assert np.isclose(d["negativity"], dg.mean_negativity(rho, N))
     assert d["hookup"] >= d["tmi"] - 1e-9 and d["tmi"] >= d["classical_corr"] - 1e-9
+
+
+# ----------------------------------------------------------------------------- measurement noise
+def test_same_shot_sampling_has_multinomial_mean_and_covariance():
+    rng = np.random.default_rng(0)
+    p = np.array([0.5, 0.2, 0.2, 0.1])
+    n = 1e4
+    x = sample_populations(np.tile(p, (200000, 1)), n, rng)
+    assert np.allclose(x.sum(axis=1), 1.0)                                   # frequencies sum to one
+    assert np.allclose(x.mean(axis=0), p, atol=1e-4)
+    assert np.allclose(np.cov(x.T) * n, np.diag(p) - np.outer(p, p), atol=5e-3)
+    z0 = np.array([1.0, 1.0, -1.0, -1.0])                                    # Z on the first of two qubits
+    assert np.isclose((x @ z0).var() * n, 1 - (p @ z0) ** 2, rtol=0.02)      # (1 - <O>^2)/n_shots
+    # observables computed from the same shots inherit the state's correlations:
+    # for populations (1/2, 0, 0, 1/2) the errors of Z_0 and Z_1 are identical
+    g = sample_populations(np.tile([0.5, 0.0, 0.0, 0.5], (1000, 1)), n, rng)
+    assert np.allclose(g @ z0, g @ np.array([1.0, -1.0, 1.0, -1.0]))
+
+
+def test_run_with_shots_returns_exact_and_noisy_features():
+    N = 3
+    res = Reservoir(H=make_H(N, seed=7), N=N, channel="dephasing", gamma=0.1)
+    s = np.random.default_rng(0).uniform(size=(2, 30))
+    exact, _ = res.run(s)
+    out, _ = res.run(s, shots=(1e6, 1e4), rng=np.random.default_rng(1))
+    assert np.array_equal(out[None], exact)
+    e6, e4 = out[1e6] - exact, out[1e4] - exact
+    assert 3e-4 < e6.std() < 1.1e-3 and 3e-3 < e4.std() < 1.1e-2

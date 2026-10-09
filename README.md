@@ -3,24 +3,24 @@
 Simulation and analysis code for the study *"Does quantum mutual information predict the
 quantum–classical performance gap of spin-network reservoir computers?"*
 
-Small transverse-field Ising reservoirs (N = 4, 6, 8) under pure dephasing or amplitude
+Small transverse-field Ising reservoirs (N = 4 to 7) under pure dephasing or amplitude
 damping are driven with NARMA and Mackey–Glass inputs, read out with finite-shot noise, and
 compared with a tuned echo state network of the same readout dimension. State diagnostics
 (negativity, l1 coherence, quantum mutual information) are then tested as predictors of the
 performance gap.
 
 * **Methods, as implemented:** [docs/METHODS.md](docs/METHODS.md)
+* **Hypotheses, decision rules and the reasons for the design:** [docs/DESIGN_V2.md](docs/DESIGN_V2.md)
 * **Pilot results and what they do and do not show:** [docs/PILOT_RESULTS.md](docs/PILOT_RESULTS.md)
 * **Notes for analysing results with Claude Code:** [CLAUDE.md](CLAUDE.md)
 
 ## Status
 
-The code is complete and tested (54 tests). The gap-ratio pilot, the integrator calibration,
-a qualitative reproduction of Palacios et al. and a reduced-size N = 4 pilot sweep have been
-run and are in `results/`. The pre-registered main sweep (2,880 configurations) and transfer
-sweep (360 configurations at N = 8) have **not** been run. The pilot raises design questions
-that should be settled first, and the transfer sweep needs a cluster; both are set out in
-`docs/PILOT_RESULTS.md`.
+The code is complete and tested (57 tests) and implements design v2. A gap-ratio pilot, an
+integrator calibration, an echo-state pilot, a qualitative reproduction of Palacios et al.
+and reduced-size N = 4 pilot sweeps of both designs have been run and are in `results/`.
+The main sweep (4,320 configurations at N = 4, 5, 6) and the transfer sweep (288
+configurations at N = 7) have **not** been run; they should follow pre-registration.
 
 ## Install
 
@@ -44,8 +44,7 @@ Requires Python ≥ 3.10. `requirements-lock.txt` pins the versions used for the
 .venv/bin/python scripts/analyze.py --main results/main/main.parquet --esn results/main/esn_baseline.parquet
 ```
 
-Sweep presets are defined in `src/qrc_qmi/config.py`: `main`, `transfer`, `pilot`, `pilot6`
-and `smoke`.
+Sweep presets are defined in `src/qrc_qmi/config.py`: `main`, `transfer`, `pilot2` and `smoke`.
 
 ## Conventions
 

@@ -1,0 +1,10 @@
+component,r2
+controls only (R2),0.6058140736120322
+all three (increment),0.026953284486550322
+unique diag_negativity,0.014404325715644428
+unique diag_coherence,0.0070145733851952885
+unique diag_tmi_per_qubit,0.0009124955759843845
+common diag_negativity & diag_coherence,0.004536039365711564
+common diag_negativity & diag_tmi_per_qubit,0.010466891430438219
+common diag_coherence & diag_tmi_per_qubit,0.011002900203460952
+common all three,-0.021383941189884514

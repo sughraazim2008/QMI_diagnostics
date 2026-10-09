@@ -5,7 +5,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-LAMBDAS = np.logspace(-10, 0, 21)
+LAMBDAS = np.logspace(-10, 2, 25)
 
 
 @dataclass(frozen=True)

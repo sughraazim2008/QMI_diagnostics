@@ -32,7 +32,7 @@ def make_inputs(cfg: SweepConfig) -> dict:
     s, targets, disc = narma_inputs(K, cfg.n_inputs, cfg.base_seed, tasks=cfg.narma_tasks)
     out["narma"] = dict(s=s, targets=targets, discarded=disc)
     if cfg.mackey_glass:
-        s, targets, _ = mackey_glass_inputs(K, cfg.n_inputs, cfg.base_seed)
+        s, targets, _ = mackey_glass_inputs(K, cfg.n_inputs, cfg.base_seed, horizon=cfg.mg_horizon)
         out["mackey_glass"] = dict(s=s, targets=targets, discarded=0)
     # fresh, target-free sequences for the diagnostics window
     rng = np.random.default_rng(np.random.SeedSequence([cfg.base_seed, 404]))
@@ -43,17 +43,26 @@ def make_inputs(cfg: SweepConfig) -> dict:
     return out
 
 
-def _score_family(feats, targets: dict, cfg: SweepConfig, rng, prefix="") -> dict:
+def _drive(res: Reservoir, s, cfg: SweepConfig, rng):
+    """Run the reservoir and return ({n_shots: features}, final state)."""
+    if cfg.noise_model == "same_shot":
+        return res.run(s, shots=cfg.shots, rng=rng)
+    feats, rho = res.run(s)
+    return {n: add_shot_noise(feats, n, rng, model=cfg.noise_model) for n in cfg.shots}, rho
+
+
+def _score_family(feats_by: dict, targets: dict, cfg: SweepConfig, prefix="") -> dict:
     """Ridge readout for every shot level, task and input realisation."""
     row = {}
     names = list(targets)
     for n_shots in cfg.shots:
         tag = shots_tag(n_shots)
+        feats = feats_by[n_shots]
         test = np.empty((feats.shape[0], len(names)))
         lam = np.empty_like(test)
         upper = np.empty_like(test)
         for j in range(feats.shape[0]):
-            X = add_shot_noise(feats[j], n_shots, rng, model=cfg.noise_model)
+            X = feats[j]
             Y = np.stack([targets[t][j] for t in names], axis=1)
             fit = ridge_select(X, Y, cfg.splits)
             test[j], lam[j], upper[j] = fit["test_nrmse"], fit["lambda"], fit["at_upper"]
@@ -70,7 +79,9 @@ def run_config(cfg: SweepConfig, point: dict, inputs: dict, n_s_table: dict | No
     t0 = time.time()
     N, channel, gamma, h, W = (point[k] for k in ("N", "channel", "gamma", "h", "W"))
     ss = np.random.SeedSequence([cfg.base_seed, *[int(i) for i in point["idx"]]])
-    ham_seed, noise_seed, esp_seed, ipc_seed = ss.spawn(4)
+    noise_seed, esp_seed, ipc_seed = ss.spawn(3)
+    # the Hamiltonian seed ignores the channel: both channels at a site share realisations
+    ham_seed = np.random.SeedSequence([cfg.base_seed, 606, *[int(i) for i in point["ham_idx"]]])
     J, D = draw_disorder(N, W, np.random.default_rng(ham_seed), coupling=cfg.coupling)
     H = build_hamiltonian(N, h, J, D, field_prefactor=cfg.field_prefactor)
     n_s = n_s_for(cfg, N, channel, gamma, n_s_table)
@@ -79,16 +90,17 @@ def run_config(cfg: SweepConfig, point: dict, inputs: dict, n_s_table: dict | No
     rng = np.random.default_rng(noise_seed)
     sp = cfg.splits
     row = dict(sweep=cfg.name, N=N, channel=channel, gamma=gamma, h=h, W=W, real=point["real"],
-               cell=f"N{N}|{channel}|g{gamma:.6g}|h{h:g}|W{W:g}", D=res.n_features,
+               site=point["site"], cell=f"{point['site']}|{channel}", D=res.n_features,
+               n_inputs=cfg.n_inputs, washout=sp.washout,
                propagator=res.propagator, n_s=n_s if res.propagator == "strang" else 0,
                gap_ratio=gap_ratio(H, N))
 
     # --- NARMA family (one trajectory serves every NARMA order and the IPC) ---------------
     fam = inputs["narma"]
-    feats, rho_end = res.run(fam["s"])
-    row.update(_score_family(feats, fam["targets"], cfg, rng))
+    feats_by, rho_end = _drive(res, fam["s"], cfg, rng)
+    row.update(_score_family(feats_by, fam["targets"], cfg))
     if cfg.compute_ipc:
-        X = add_shot_noise(feats[0, sp.washout:], cfg.shots[0], rng, model=cfg.noise_model)
+        X = feats_by[cfg.shots[0]][0, sp.washout:]
         u = 2.0 * fam["s"][0, sp.washout:] - 1.0
         row.update(ipc(X, u, cfg.ipc_degree, cfg.ipc_delay,
                        seed=int(ipc_seed.generate_state(1)[0])))
@@ -103,8 +115,8 @@ def run_config(cfg: SweepConfig, point: dict, inputs: dict, n_s_table: dict | No
     # --- Mackey-Glass (separate drive, separate diagnostics) ------------------------------
     if cfg.mackey_glass:
         fam = inputs["mackey_glass"]
-        feats, rho_end = res.run(fam["s"])
-        row.update(_score_family(feats, fam["targets"], cfg, rng))
+        feats_by, rho_end = _drive(res, fam["s"], cfg, rng)
+        row.update(_score_family(feats_by, fam["targets"], cfg))
         avg = DiagnosticAverager(N, cfg.diag_stride)
         res.run(fam["s_diag"], rho0=rho_end[:1], record=False, on_period_end=avg)
         row.update({f"diagmg_{k}": v for k, v in avg.mean().items()})
