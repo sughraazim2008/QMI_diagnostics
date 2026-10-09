@@ -33,6 +33,30 @@ python3 -m venv .venv
 Requires Python ≥ 3.10. `requirements-lock.txt` pins the versions used for the pilot
 (Python 3.14, NumPy 2.5, SciPy 1.18).
 
+## Quickstart
+
+New to the codebase and just want to see it run? [`examples/quickstart.py`](examples/quickstart.py)
+builds one noisy 4-qubit reservoir, scores it on NARMA-10, and prints its state diagnostics
+— in under 25 lines, with no sweep configuration required:
+
+```bash
+python3 -m venv .venv
+.venv/bin/python -m pip install -e .
+.venv/bin/python examples/quickstart.py
+```
+
+Expected output (exact numbers depend on the fixed seeds in the script, but the shape is
+always NRMSE around 0.5 and small positive diagnostic values):
+
+```
+NARMA-10 test NRMSE: 0.4985
+Negativity: 0.0000   l1 coherence: 0.1093   QMI/qubit: 0.0734
+```
+
+For the full pilot/main/transfer sweeps this example doesn't touch (sweep presets, cluster
+bootstrap analysis, the matched classical baseline), see **Run** below and
+[docs/METHODS.md](docs/METHODS.md).
+
 ## Run
 
 ```bash
