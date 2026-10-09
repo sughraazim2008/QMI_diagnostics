@@ -293,7 +293,8 @@ and a pilot, so it needs the main sweep to confirm.
 
 H0c is not rejected, because not every transfer passes. A model fitted on NARMA-10 carries
 over to the harder tasks but not across channels, which agrees with H1b. The channel
-intervals are very wide with 44 sites; the main sweep has three times as many per size.
+intervals are very wide with 44 sites and 4 realisations each; the main sweep has three
+system sizes of 72 sites each and 10 realisations per site.
 
 ### 6.3 What this suggests for the paper
 
