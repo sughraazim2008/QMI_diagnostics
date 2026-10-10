@@ -151,3 +151,23 @@ def gap_ratio_map(gap: pd.DataFrame, path):
     fig.colorbar(im, ax=axes[0].tolist(), fraction=0.03, label="⟨r⟩  (Poisson 0.386 → GOE 0.531)")
     fig.suptitle("Mean adjacent-gap ratio within parity sectors", x=0.01, ha="left", fontweight="bold")
     return _save(fig, path)
+
+
+def channel_slopes(h1b: pd.DataFrame, path, title="H1b: QMI slope by decoherence channel"):
+    """Standardised QMI slope under each channel, with 95% intervals (cluster-robust), one
+    panel per QMI variant.  h1b is the table returned by stats.h1b."""
+    fig, axes = plt.subplots(1, len(h1b), figsize=(3.4 * len(h1b), 3.0), sharey=True, squeeze=False)
+    for ax, (_, r) in zip(axes[0], h1b.iterrows()):
+        for x, ch in enumerate(("dephasing", "amplitude_damping")):
+            b, se = r[f"slope_{ch}"], r[f"se_{ch}"]
+            ax.errorbar([x], [b], yerr=[1.96 * se], fmt=MARKERS[ch], color=COLORS[ch], ms=7,
+                        elinewidth=1.5, capsize=0, label=LABELS[ch])
+        ax.axhline(0, color=INK, lw=0.8)
+        ax.set_xticks([0, 1], ["Dephasing", "Amplitude\ndamping"])
+        ax.set_xlim(-0.6, 1.6)
+        ax.grid(axis="x", visible=False)
+        ax.set_title(f"{NICE.get(r['qmi'], r['qmi'])}\ninteraction {r['interaction']:+.2f} "
+                     f"(SE {r['se']:.2f}), adj. p = {r['p_interaction_holm']:.2g}", fontsize=8)
+    axes[0, 0].set_ylabel("Standardised slope of Δ on QMI")   # channels are named on the x axis
+    fig.suptitle(title, x=0.01, y=1.12, ha="left", fontweight="bold")
+    return _save(fig, path)

@@ -11,7 +11,7 @@ authors:
     orcid: 0000-0000-0000-0000   # TODO: replace with your real ORCID (free at orcid.org, takes 2 minutes)
     affiliation: 1
 affiliations:
-  - name: School of Physics and Astronomy, University of Edinburgh, United Kingdom  # TODO: confirm exact department wording
+  - name: Undergraduate student, School of Physics and Astronomy, University of Edinburgh, United Kingdom. This work was carried out independently and is not a University project.  # TODO: confirm wording
     index: 1
 date: XX Month 2026   # TODO: fill in on submission
 bibliography: paper.bib
@@ -26,8 +26,8 @@ time-series benchmarks (NARMA, Mackey-Glass) with finite-shot measurement noise 
 Alongside each simulation it computes a set of state diagnostics (entanglement negativity,
 l1-norm coherence, and total/pairwise quantum mutual information) directly from the
 reservoir's quantum state, without ever looking at the task it will be scored on. The
-package also builds a size- and tuning-budget-matched classical echo-state-network baseline
-for every configuration, so that "quantum reservoir performance" is always reported as a
+package also builds a tuned classical echo-state-network baseline matched to the quantum
+readout dimension for every task and system size, so that "quantum reservoir performance" is always reported as a
 *gap* against a fairly tuned classical comparator rather than as an absolute number. A
 statistical-analysis module runs the cross-validated, bootstrap- and equivalence-tested
 comparisons (nested-model R^2 gain, channel-interaction tests, transfer-ratio tests) needed
@@ -45,7 +45,7 @@ apparent quantum advantages in reservoir computing can disappear once the classi
 is tuned as carefully as the quantum model [@pandey2026; @tariq2026]. No existing open-source
 tool combines (1) multiple decoherence channels simulated under a shared, validated pipeline,
 (2) a battery of state diagnostics computed without access to task targets, (3) a
-tuning-matched classical baseline for every configuration, and (4) the statistical machinery
+tuned, dimension-matched classical baseline for every task and system size, and (4) the statistical machinery
 (nested cross-validation, cluster bootstrap, equivalence testing, Holm-corrected interaction
 tests, transfer-ratio tests) needed to test "does this diagnostic predict the *fair-baseline*
 performance gap" as a falsifiable, pre-registerable hypothesis rather than an informal

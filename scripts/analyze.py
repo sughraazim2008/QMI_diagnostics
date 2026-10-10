@@ -192,6 +192,7 @@ def main():
         h1b = st.h1b(cs, alpha=a.alpha)
         h1b.to_csv(out / "table_h1b.csv", index=False)
         S["h1b"] = h1b.to_dict(orient="records")
+        fg.channel_slopes(h1b, out / "figures/h1b_channel_slopes.png")
         R += [f"Common-support sites only (n = {len(cs)}, {cs['site'].nunique()} sites). Standardised model "
               "with errors clustered by site; the interaction is the amplitude-damping slope minus the "
               "dephasing slope.\n",
